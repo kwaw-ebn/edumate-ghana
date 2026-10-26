@@ -32,4 +32,7 @@ Use fictional demo records only. The Presentation Guide walks through the suppor
 - Production frontend proxy integration passed for the landing page, API health, cookie login, published lesson list, refresh rotation and logout.
 - `render.yaml` passed validation against Render's published JSON schema. Render CLI validation has not been run.
 - Disconnected browser verification and visual browser QA were not completed: the Chromium download was corrupt in this environment. Offline reading must be verified before presenting it as tested.
-- No live Render services or Neon project have been provisioned in this session.
+- Deployed on 26 October 2026 to the confirmed Render My Workspace: frontend https://edumate-ghana.onrender.com and backend https://edumate-ghana-api.onrender.com, both verified live. Dedicated Neon project: EduMate Ghana (Frankfurt).
+- Live checks passed against Neon: all four role logins, published lesson visibility and completion, quiz score persistence, assignment submission retry, teacher grading, released feedback, platform learner-record restriction, refresh rotation and logout.
+- Demo data was seeded successfully. Live verification adds one labelled presentation-check lesson and assignment to the fictional school.
+- Deployment environment variables are managed directly on Render. The supplied Blueprint remains a deployment template; do not apply it as a second management path without reconciling existing services.
