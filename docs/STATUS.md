@@ -35,3 +35,11 @@ Core lesson publication, server-scored quizzes, teacher grading, marketing page 
 - Device activity requires the learner to select their assigned tablet record in Offline learning. Inactive inventory status does not lock, wipe or uninstall software on Android.
 - Content is original demonstration material requiring educator curriculum review before real school use. Some original seed quiz questions repeat.
 - Stronger session-family replay handling, distributed rate limits, privacy/retention policies and real Android device testing remain production preparation work.
+
+## Live release verification - 26 October 2026
+
+Release commit `cacb658143d35585f6c234fb4b76ab3acd8ce7e5` is live on both existing Render services. Neon migration `0002` completed and the private resource bucket is configured.
+
+Live API checks passed: real private-object upload/download; curriculum review and downloadable practice packages; versioned drafts and conflict rejection; submission attachments and released feedback; synchronization retries without duplicate submissions; device last-sync recording; linked-parent isolation; custom classes/subjects/terms; and school PDF/CSV exports. The checks used fictional records and added one demonstration worksheet lesson and assignment.
+
+The parent demonstration login is `parent@demo.edumate.test`, linked to Ama, using the existing configured demonstration password. See [school tool instructions](SCHOOL_TOOLS.md).
