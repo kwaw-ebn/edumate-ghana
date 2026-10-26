@@ -1,4 +1,4 @@
-const CACHE='edumate-offline-v3';
+const CACHE='edumate-offline-v4';
 const FILES=['/offline.html','/offline.css','/offline-app.js','/offline-core.js','/manifest.webmanifest','/icon.svg'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>{

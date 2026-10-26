@@ -91,3 +91,23 @@ def test_document_type_detection():
     with zipfile.ZipFile(out,'w') as z:z.writestr('[Content_Types].xml','xml');z.writestr('ppt/presentation.xml','xml')
     assert storage.validate_file('slides.pptx',out.getvalue()).endswith('presentation')
     with pytest.raises(Exception):storage.validate_file('slides.docx',out.getvalue())
+
+def test_lesson_video_review_permissions_and_offline(object_store):
+    t=client('maths');admin=client('admin');s=client('student3');l=lesson(t)
+    video=b'\x00\x00\x00\x18ftypisom'+b'\x00'*16
+    r=t.post('/files?lesson_id='+l['id'],files={'file':('lesson.mp4',video,'video/mp4')});assert r.status_code==200,r.text
+    fid=r.json()['id']
+    assert s.get('/files/'+fid+'/download').status_code==404
+    assert all(x['id']!=fid for x in s.get('/lessons/'+l['id']+'/offline-package').json()['files'])
+    assert s.post('/files?lesson_id='+l['id'],files={'file':('lesson.mp4',video)}).status_code==403
+    assert t.post('/files?lesson_id='+l['id'],files={'file':('fake.mp4',b'not a video')}).status_code==422
+    assert admin.put('/lessons/'+l['id']+'/curriculum',json={'review_status':'reviewed'}).status_code==200
+    r=s.get('/files/'+fid+'/download');assert r.status_code==200 and r.content==video and r.headers['content-type']=='video/mp4'
+    assert any(x['id']==fid for x in s.get('/lessons/'+l['id']+'/offline-package').json()['files'])
+    assert t.put('/lessons/'+l['id']+'/video-link',json={'url':'https://evil.test/watch?v=abcdefghijk','rights_confirmed':True}).status_code==422
+    assert t.put('/lessons/'+l['id']+'/video-link',json={'url':'https://youtu.be/abcdefghijk','rights_confirmed':False}).status_code==422
+    assert t.put('/lessons/'+l['id']+'/video-link',json={'url':'https://youtu.be/abcdefghijk','rights_confirmed':True}).status_code==200
+    assert s.get('/lessons/'+l['id']+'/video-link').json()['youtube_id'] is None
+    assert admin.put('/lessons/'+l['id']+'/curriculum',json={'review_status':'reviewed'}).status_code==200
+    assert s.get('/lessons/'+l['id']+'/video-link').json()['youtube_id']=='abcdefghijk'
+    assert s.put('/lessons/'+l['id']+'/video-link',json={'url':''}).status_code==403

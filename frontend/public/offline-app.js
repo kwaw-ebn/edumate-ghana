@@ -6,7 +6,7 @@ async function request(path,method='GET',body){let r=await fetch('/api'+path,{me
 async function sync(){if(!user)return;const r=await synchronize(user,request);status.textContent=`Synchronized ${r.sent} activities. ${r.pending} remain queued. Sign in online if your session has expired.`;}
 document.querySelector('#sync').onclick=()=>sync().catch(e=>status.textContent=e.message);
 window.addEventListener('online',()=>sync().catch(()=>{}));
-function resources(files){for(const f of files||[]){const a=node('a','Download '+f.name);a.href=URL.createObjectURL(f.blob);a.download=f.name;a.className='file';}}
+function resources(files){for(const f of files||[]){const url=URL.createObjectURL(f.blob);if(f.content_type==='video/mp4'){node('h3',f.name);const video=node('video');video.controls=true;video.playsInline=true;video.preload='metadata';video.src=url;video.style.maxWidth='100%';}else{const a=node('a','Download '+f.name);a.href=url;a.download=f.name;a.className='file';}}}
 async function lesson(id){main.replaceChildren();const p=await read('lesson',user.id,id);node('small','DOWNLOADED LESSON • UNGRADED PRACTICE');node('h2',p.lesson.title);node('p',p.lesson.objectives);node('pre',p.lesson.content);resources(p.files);
  button('Mark lesson complete',async()=>{await queue(user.id,'complete',id);status.textContent='Completion saved on this tablet. It will synchronize when connected.';if(navigator.onLine)await sync();});
  const q=p.curriculum.practice;if(q){node('h3','Practice • does not count toward quiz grades');node('p',q.prompt);for(const o of q.options)button(o,async()=>{await queue(user.id,'practice',id,{answer:o});status.textContent=(o===q.correct?'Correct. ':'Try again. ')+q.explanation+' Your practice is saved.';if(navigator.onLine)await sync();});}

@@ -189,3 +189,8 @@ class PracticeQuestion(Base):
     options: Mapped[list] = mapped_column(JSON)
     correct: Mapped[str]
     explanation: Mapped[str] = mapped_column(default='')
+
+class LessonVideoLink(Base):
+    __tablename__ = 'lesson_video_links'
+    lesson_id: Mapped[str] = mapped_column(ForeignKey('lessons.id'),primary_key=True)
+    youtube_id: Mapped[str] = mapped_column(String(11))

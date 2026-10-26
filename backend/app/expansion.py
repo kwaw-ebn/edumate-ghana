@@ -121,20 +121,32 @@ async def upload(file:UploadFile=File(...),lesson_id:str|None=None,assessment_id
         role(u,'teacher','school_admin');l=db.get(Lesson,lesson_id);content_access(db,u,l)
         if u.role=='teacher' and l.author_id!=u.id:fail()
     if assessment_id:content_access(db,u,db.get(Assessment,assessment_id))
-    data=await file.read(storage.MAX_BYTES+1);name=re.sub(r'[^\w.() -]','_',file.filename or 'resource')[:180]
+    name=re.sub(r'[^\w.() -]','_',file.filename or 'resource')[:180]
+    is_video=name.lower().endswith('.mp4')
+    if is_video and (not lesson_id or u.role not in ('teacher','school_admin')):fail('Video uploads are available to teachers for lessons only',403)
+    data=await file.read((storage.MAX_VIDEO_BYTES if is_video else storage.MAX_BYTES)+1)
     mime=storage.validate_file(name,data);id=uid();key=f'{u.school_id}/{id}/{name}'
     storage.put(key,data,mime)
+    if is_video:
+        review=db.get(Curriculum,lesson_id)
+        if not review:review=Curriculum(lesson_id=lesson_id);db.add(review)
+        review.review_status='pending';review.reviewer_id=None
     a=FileAsset(id=id,school_id=u.school_id,uploader_id=u.id,lesson_id=lesson_id,assessment_id=assessment_id,student_work=u.role=='student',name=name,object_key=key,content_type=mime,size=len(data));db.add(a);audit(db,u,'upload resource');db.commit();return file_view(a)
 @router.get('/files')
 def files(lesson_id:str|None=None,assessment_id:str|None=None,u=Depends(current),db=Depends(db_session)):
     if bool(lesson_id)==bool(assessment_id):fail('Select a lesson or assessment',422)
     obj=db.get(Lesson,lesson_id) if lesson_id else db.get(Assessment,assessment_id);content_access(db,u,obj)
     rows=db.scalars(select(FileAsset).where(FileAsset.school_id==u.school_id,FileAsset.lesson_id==lesson_id) if lesson_id else select(FileAsset).where(FileAsset.school_id==u.school_id,FileAsset.assessment_id==assessment_id))
-    return [file_view(x) for x in rows if u.role!='student' or not x.student_work or x.uploader_id==u.id]
+    reviewed=bool(lesson_id and (c:=db.get(Curriculum,lesson_id)) and c.review_status=='reviewed')
+    return [file_view(x) for x in rows if (u.role!='student' or not x.student_work or x.uploader_id==u.id) and (u.role!='student' or x.content_type!='video/mp4' or reviewed)]
 @router.get('/files/{id}/download')
 def download(id:str,u=Depends(current),db=Depends(db_session)):
     a=db.get(FileAsset,id);asset_access(db,u,a)
-    return Response(storage.read(a.object_key),media_type=a.content_type,headers={'Content-Disposition':"attachment; filename*=UTF-8''"+quote(a.name),'X-Content-Type-Options':'nosniff'})
+    if u.role=='student' and a.content_type=='video/mp4':
+        review=db.get(Curriculum,a.lesson_id)
+        if not review or review.review_status!='reviewed':fail('Video awaits educator review',404)
+    disposition='inline' if a.content_type=='video/mp4' else 'attachment'
+    return Response(storage.read(a.object_key),media_type=a.content_type,headers={'Content-Disposition':disposition+"; filename*=UTF-8''"+quote(a.name),'X-Content-Type-Options':'nosniff','Cache-Control':'private, no-store'})
 def validate_attachments(db,u,assessment_id,ids):
     if len(set(ids))!=len(ids):fail('Duplicate attachment',422)
     for id in ids:
@@ -312,3 +324,44 @@ def export(format:Literal['csv','pdf']='csv',class_name:str|None=None,subject:st
     table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#eaf2fb')),('VALIGN',(0,0),(-1,-1),'TOP'),('GRID',(0,0),(-1,-1),.4,colors.HexColor('#dbe3ed')),('TOPPADDING',(0,0),(-1,-1),8),('BOTTOMPADDING',(0,0),(-1,-1),8)]))
     doc.build([Paragraph('EduMate Ghana — School Performance',styles['Title']),Paragraph(escape(f"Class: {class_name or 'All authorized classes'} | Subject: {subject or 'All authorized subjects'}"),styles['Normal']),Spacer(1,15),table,Spacer(1,15),Paragraph(escape(report['support_rule']),small)])
     audit(db,u,'export performance '+format);db.commit();return Response(buf.getvalue(),media_type='application/pdf',headers={'Content-Disposition':'attachment; filename="edumate-performance.pdf"'})
+
+class VideoLinkIn(BaseModel):
+    url:str=Field(max_length=500)
+    rights_confirmed:bool=False
+
+def youtube_id(url):
+    from urllib.parse import urlparse,parse_qs
+    u=urlparse(url.strip())
+    try: port=u.port
+    except ValueError:fail('Enter a valid HTTPS YouTube link',422)
+    if u.scheme!='https' or u.username or u.password or port:fail('Enter a valid HTTPS YouTube link',422)
+    host=(u.hostname or '').lower()
+    if host in ('youtu.be','www.youtu.be'):value=u.path.strip('/')
+    elif host in ('youtube.com','www.youtube.com','m.youtube.com') and u.path=='/watch':value=parse_qs(u.query).get('v',[''])[0]
+    else:fail('Use a standard YouTube watch or youtu.be link',422)
+    if not re.fullmatch(r'[A-Za-z0-9_-]{11}',value):fail('Invalid YouTube video ID',422)
+    return value
+
+@router.get('/lessons/{id}/video-link')
+def get_video_link(id:str,u=Depends(current),db=Depends(db_session)):
+    l=db.get(Lesson,id);content_access(db,u,l)
+    x=db.get(LessonVideoLink,id);review=db.get(Curriculum,id)
+    if u.role=='student' and (not review or review.review_status!='reviewed'):return {'youtube_id':None}
+    return {'youtube_id':x.youtube_id if x else None}
+
+@router.put('/lessons/{id}/video-link')
+def save_video_link(id:str,b:VideoLinkIn,u=Depends(current),db=Depends(db_session)):
+    role(u,'teacher','school_admin');l=db.get(Lesson,id);content_access(db,u,l)
+    if u.role=='teacher' and l.author_id!=u.id:fail()
+    x=db.get(LessonVideoLink,id)
+    if not b.url.strip():
+        if x:db.delete(x)
+        db.commit();return {'youtube_id':None}
+    if not b.rights_confirmed:fail('Confirm permission and educational suitability',422)
+    vid=youtube_id(b.url)
+    if not x:x=LessonVideoLink(lesson_id=id,youtube_id=vid);db.add(x)
+    else:x.youtube_id=vid
+    review=db.get(Curriculum,id)
+    if not review:review=Curriculum(lesson_id=id);db.add(review)
+    review.review_status='pending';review.reviewer_id=None
+    audit(db,u,'update lesson video link');db.commit();return {'youtube_id':vid}

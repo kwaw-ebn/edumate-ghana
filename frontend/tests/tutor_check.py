@@ -20,6 +20,7 @@ def main():
      if path=='/auth/me':data={'id':'student-demo','name':'Ama Demo','role':'student','class_name':'Primary 5','school_id':'demo','email':'ama@example.org'}
      elif path=='/setup':data={'class':[{'id':'p5','name':'Primary 5'}],'subject':[{'id':'math','name':'Mathematics'},{'id':'science','name':'Science'}],'term':[]}
      elif path=='/lessons':data=LESSONS
+     elif path.endswith('/video-link'):data={'youtube_id':None}
      elif path.endswith('/curriculum'):
       data={'review_status':'pending','practice':{'prompt':'Which fraction equals one half?','options':['2/4','1/3'],'correct':'2/4','explanation':'Multiply both parts by two.'}} if 'math-demo' in path else {'review_status':'pending','practice':None}
      elif path.startswith('/files?') or path in ['/assessments','/submissions','/progress','/devices']:data=[]

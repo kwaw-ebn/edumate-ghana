@@ -1,0 +1,10 @@
+'use client';
+import {useEffect,useState} from 'react';
+type Row=Record<string,any>;
+type Api=(path:string,method?:string,body?:any)=>Promise<any>;
+export default function VideoLink({api,lesson,user}:{api:Api,lesson:Row,user:Row}){
+ const [id,setId]=useState<string|null>(null),[url,setUrl]=useState(''),[confirmed,setConfirmed]=useState(false),[show,setShow]=useState(false),[message,setMessage]=useState('');
+ const editable=user.role==='school_admin'||(user.role==='teacher'&&lesson.author_id===user.id);
+ useEffect(()=>{setShow(false);api('/lessons/'+lesson.id+'/video-link').then(r=>setId(r.youtube_id)).catch(e=>setMessage(e.message));},[lesson.id]);
+ return <section className="tool-panel"><h3>Online video</h3><p className="fine">Teacher-selected YouTube videos need an internet connection and cannot be downloaded in EduMate. A school administrator must review the lesson before pupils can see a new video.</p>{message&&<p role="status">{message}</p>}{id&&(show?<iframe title="Teacher-selected YouTube video" width="560" height="315" style={{maxWidth:'100%'}} src={'https://www.youtube-nocookie.com/embed/'+id} allow="encrypted-media; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin"/>:<button type="button" className="outline" onClick={()=>setShow(true)}>Load teacher-selected video</button>)}{editable&&<form onSubmit={async e=>{e.preventDefault();try{const r=await api('/lessons/'+lesson.id+'/video-link','PUT',{url,rights_confirmed:confirmed});setId(r.youtube_id);setShow(false);setMessage(r.youtube_id?'Video saved. The lesson now needs administrator review.':'Online video removed.');}catch(e){setMessage((e as Error).message);}}}><label>YouTube watch link<input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..."/></label><label><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> I have checked permission and suitability for young learners.</label><button type="submit">Save link</button><p className="fine">Leave the link blank and save to remove it. Loading uses YouTube’s external player.</p></form>}</section>
+}
