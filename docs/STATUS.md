@@ -47,3 +47,7 @@ The parent demonstration login is `parent@demo.edumate.test`, linked to Ama, usi
 ## Tutor frontend expansion
 
 The student tutor interface now supports a published-lesson entry point, subject/lesson context, chat, prepared explanations and hints, teacher-authored or sample ungraded practice with feedback/retry, revision plans, optional browser read-aloud and per-lesson tab history. All screens identify demonstration mode. GPT is not connected and there are no AI requests or paid API dependencies. See [tutor frontend and future integration](AI_TUTOR.md).
+
+## Login and sleeping services
+
+The Render free-plan backend can take time to resume after inactivity. Before sending credentials, the sign-in screen waits up to 90 seconds for the public `/health` endpoint, retrying only safe health GETs for transient server/network failures. It displays a wake-up message and retains entered details while waiting. Login POSTs are not automatically retried. A server error is identified as a server problem instead of automatically blaming the user's internet connection. See `frontend/tests/login-wakeup.mjs` and `frontend/tests/login-ui-check.py`.

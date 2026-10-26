@@ -22,3 +22,5 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci && npm run build
         working-directory: frontend
+      - run: node --experimental-strip-types tests/login-wakeup.mjs
+        working-directory: frontend
