@@ -95,3 +95,97 @@ class Audit(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
     action: Mapped[str]
     created_at: Mapped[str] = mapped_column(default=now)
+
+class SchoolSetting(Base):
+    __tablename__ = 'school_settings'
+    id: Mapped[str] = mapped_column(String(36),primary_key=True,default=uid)
+    school_id: Mapped[str] = mapped_column(ForeignKey('schools.id'),index=True)
+    kind: Mapped[str]
+    name: Mapped[str]
+    details: Mapped[dict] = mapped_column(JSON,default=dict)
+    __table_args__ = (UniqueConstraint('school_id','kind','name'),)
+class Enrollment(Base):
+    __tablename__ = 'enrollments'
+    id: Mapped[str] = mapped_column(String(36),primary_key=True,default=uid)
+    school_id: Mapped[str] = mapped_column(ForeignKey('schools.id'),index=True)
+    student_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    class_name: Mapped[str]
+    term_id: Mapped[str] = mapped_column(ForeignKey('school_settings.id'))
+    __table_args__ = (UniqueConstraint('student_id','term_id'),)
+class Curriculum(Base):
+    __tablename__ = 'lesson_curriculum'
+    lesson_id: Mapped[str] = mapped_column(ForeignKey('lessons.id'),primary_key=True)
+    term_id: Mapped[str | None] = mapped_column(ForeignKey('school_settings.id'))
+    week: Mapped[int | None]
+    strand: Mapped[str] = mapped_column(default='')
+    sub_strand: Mapped[str] = mapped_column(default='')
+    review_status: Mapped[str] = mapped_column(default='pending')
+    reviewer_id: Mapped[str | None] = mapped_column(ForeignKey('users.id'))
+class FileAsset(Base):
+    __tablename__ = 'file_assets'
+    id: Mapped[str] = mapped_column(String(36),primary_key=True,default=uid)
+    school_id: Mapped[str] = mapped_column(ForeignKey('schools.id'),index=True)
+    uploader_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    lesson_id: Mapped[str | None] = mapped_column(ForeignKey('lessons.id'),index=True)
+    assessment_id: Mapped[str | None] = mapped_column(ForeignKey('assessments.id'),index=True)
+    student_work: Mapped[bool] = mapped_column(default=False)
+    name: Mapped[str]
+    object_key: Mapped[str] = mapped_column(unique=True)
+    content_type: Mapped[str]
+    size: Mapped[int]
+    created_at: Mapped[str] = mapped_column(default=now)
+class SubmissionFile(Base):
+    __tablename__ = 'submission_files'
+    id: Mapped[str] = mapped_column(String(36),primary_key=True,default=uid)
+    submission_id: Mapped[str] = mapped_column(ForeignKey('submissions.id'),index=True)
+    file_id: Mapped[str] = mapped_column(ForeignKey('file_assets.id'))
+    __table_args__ = (UniqueConstraint('submission_id','file_id'),)
+class AssignmentDraft(Base):
+    __tablename__ = 'assignment_drafts'
+    id: Mapped[str] = mapped_column(String(36),primary_key=True,default=uid)
+    student_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    assessment_id: Mapped[str] = mapped_column(ForeignKey('assessments.id'))
+    answers: Mapped[list] = mapped_column(JSON,default=list)
+    file_ids: Mapped[list] = mapped_column(JSON,default=list)
+    version: Mapped[int] = mapped_column(default=1)
+    updated_at: Mapped[str] = mapped_column(default=now)
+    __table_args__ = (UniqueConstraint('student_id','assessment_id'),)
+class ParentLink(Base):
+    __tablename__ = 'parent_links'
+    id: Mapped[str] = mapped_column(String(36),primary_key=True,default=uid)
+    school_id: Mapped[str] = mapped_column(ForeignKey('schools.id'))
+    parent_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    student_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    __table_args__ = (UniqueConstraint('parent_id','student_id'),)
+class Device(Base):
+    __tablename__ = 'devices'
+    id: Mapped[str] = mapped_column(String(36),primary_key=True,default=uid)
+    school_id: Mapped[str] = mapped_column(ForeignKey('schools.id'),index=True)
+    label: Mapped[str]
+    serial: Mapped[str]
+    student_id: Mapped[str | None] = mapped_column(ForeignKey('users.id'))
+    active: Mapped[bool] = mapped_column(default=True)
+    last_sync: Mapped[str | None]
+    __table_args__ = (UniqueConstraint('school_id','serial'),)
+class SyncEvent(Base):
+    __tablename__ = 'sync_events'
+    event_id: Mapped[str] = mapped_column(String(100),primary_key=True)
+    student_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    kind: Mapped[str]
+    result: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[str] = mapped_column(default=now)
+class PracticeAttempt(Base):
+    __tablename__ = 'practice_attempts'
+    id: Mapped[str] = mapped_column(String(36),primary_key=True,default=uid)
+    student_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    lesson_id: Mapped[str] = mapped_column(ForeignKey('lessons.id'))
+    answer: Mapped[str]
+    correct: Mapped[bool]
+    created_at: Mapped[str] = mapped_column(default=now)
+class PracticeQuestion(Base):
+    __tablename__ = 'lesson_practice_questions'
+    lesson_id: Mapped[str] = mapped_column(ForeignKey('lessons.id'),primary_key=True)
+    prompt: Mapped[str]
+    options: Mapped[list] = mapped_column(JSON)
+    correct: Mapped[str]
+    explanation: Mapped[str] = mapped_column(default='')

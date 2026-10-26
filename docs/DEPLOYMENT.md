@@ -13,3 +13,13 @@ The repository contains a two-service `render.yaml`. No database credentials are
 9. Download a lesson, wait for the service worker to activate, disconnect in the browser and reload. Confirm downloaded text is shown. This does not test offline quizzes or sync, which are not implemented.
 
 Build configuration is provided, but Render CLI validation and live deployment must be recorded when performed. Do not mark the full acceptance criteria complete based on this file.
+
+## School expansion release
+
+The existing Render backend runs migrations and the idempotent demonstration seed before starting FastAPI. Migration `0002` adds school settings, enrollments, curriculum, file metadata, drafts, parent links, device inventory, sync receipts and practice records without deleting existing lessons or submissions.
+
+Configure these backend-only variables for a private S3-compatible bucket: `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`. The current deployment uses the dedicated private `edumate-resources` bucket in the EduMate Neon main branch. Do not expose its credentials to the frontend.
+
+The demo seed also adds `parent@demo.edumate.test`, linked to Ama, and one fictional tablet asset. It does not reset existing passwords or replace learner work.
+
+After deploying an offline change, reload the app online once to install the new service worker and download the required materials. Test real Android installation and storage capacity before a school rollout.

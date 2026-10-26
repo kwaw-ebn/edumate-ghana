@@ -1,38 +1,37 @@
-# Implementation status
+# EduMate Ghana implementation status
 
-This first build prioritizes an end-to-end teacher → student → grading workflow as permitted by section 24 of the supplied requirements. It is not the final acceptance-complete MVP.
+## Implemented school expansion
 
-## Working core
+| Requested area | Available behavior |
+|---|---|
+| Teacher uploads | Private S3-compatible storage. Attach PDF, DOCX, PPTX, XLSX, PNG and JPEG resources to lessons or assessments. Download access follows school, class, subject and student-work ownership. File extension, contents and size are checked; 10 MB limit. |
+| Assignment drafts and attachments | Local autosave plus versioned server drafts. Photos and worksheet attachments accompany final submissions. Conflicts preserve local work and allow comparison with the server draft. Teachers can download attachments for marking. |
+| Offline learning | Cached standalone workspace, downloaded lessons/resources, ungraded practice, downloaded assessments, local answers/photos, persistent queue and automatic synchronization on reconnection or periodic online checks. Failed/expired sessions retain work. Server rechecks access and attempt limits and prevents duplicate final submissions. |
+| Ghana curriculum organization | School-defined terms, week, strand, sub-strand and objectives. School administrator can record educator review. Teachers author ungraded offline practice questions. No official NaCCA approval is claimed. |
+| Performance reports | Authorized class/subject filters, released average scores, lesson completion, assignment completion and clearly defined follow-up flags. Download CSV and paginated PDF. |
+| Flexible school setup | Create classes, subjects and academic terms; register learners, teachers and parents; assign teachers; enroll/transfer learners with term history. Current content access follows the learner's current class. |
+| Parent summaries | School-created parent accounts linked to named learners. Parents see only linked learners' released scores, feedback, lesson completion and outstanding current-class assignments. No automatic email or messaging is enabled. |
+| Device records | Register tablet asset tags, assign learners, change active status and record app heartbeats/last synchronization. Inactive records reject heartbeats. This is app inventory, not Android kiosk/remote-lock software. |
 
-Authentication, role authorization, school isolation, assigned class/subject checks, text lesson creation and publishing, student lesson completion, objective quizzes, written assignments, teacher grading, released student feedback, school account management, marketing site and database-backed enquiries.
+Core lesson publication, server-scored quizzes, teacher grading, marketing page and stored demonstration enquiries remain available.
 
-## Limitations / remaining work
+## Verification
 
-- Uploads and S3-compatible resources: not implemented; no upload buttons are presented.
-- Rich-text/math/media lesson editor, lesson preview, separate resource library and reusable cross-class content: not implemented.
-- Offline reading is the only offline learning workflow. Offline quiz attempts, assignment drafts, retry queue, conflict resolution and server sync are not implemented. Shared-device downloaded files are plaintext in browser storage; logout disables the reader until another authenticated download. Use separate tablet/browser profiles before handling real student data.
-- Quiz timer, scheduled opening, editing published assessments, saved drafts and partial objective/manual grading are not implemented. Mixed written/objective assignments require teacher grading of the full score.
-- School classes and subjects are fixed to Primary 4/5 and three subjects. Dynamic class/subject creation, student profile editing, devices, notifications, subscriptions, CSV reports, advanced analytics and Recharts dashboards remain.
-- Platform school admin provisioning, school activation UI, subscriptions, device management, health monitoring and audit UI remain. Audit data has a platform-only API.
-- Password reset, refresh-family replay revocation, distributed rate limiting and brute-force protection behind trusted proxy configuration require production work.
-- Full normalized schema from the master prompt is not complete. Current implementation uses users for teacher/student profiles, class labels, teacher assignment records and one assessment table for quizzes/assignments.
-- UI uses custom CSS and native forms rather than Tailwind/shadcn, React Hook Form, Zod and TanStack Query. Validation is enforced server-side by Pydantic. This should be migrated if the exact stack is required.
-- Educational content is original illustrative material. Ghana curriculum mapping and educator review are pending. No NaCCA approval is claimed. Some seed quiz entries reuse a question for practice.
-- Tests currently run on SQLite, not PostgreSQL. PostgreSQL integration, concurrency/load testing and mobile device validation remain required.
-- Render deployment and Neon connectivity are not implied by a successful local build. Record verified deployment URLs separately only after a successful live deployment.
+- Backend tests cover the original workflow plus setup/enrollment, private attachments and validation, draft conflict handling, synchronization idempotence and permission rechecks, parent restrictions, device activation, and PDF/CSV exports.
+- Production Next.js build and TypeScript checks pass.
+- Real Chromium tablet-browser test covers online draft restoration, disconnected navigation and downloaded lesson/practice access, offline answers/photo persistence after reload, work retention after session expiry, upload and synchronization after reconnection, and duplicate synchronization.
+- Tablet screenshots and the generated school report were visually inspected.
+- Additive table DDL was exercised on an isolated Neon branch. SQLite migration from the previous schema was also verified. Direct PostgreSQL TCP access from the development environment is unavailable; live checks use the deployed API and the Neon connector.
+- Deployed services: https://edumate-ghana.onrender.com and https://edumate-ghana-api.onrender.com. Deployment environment variables are managed directly on Render; `render.yaml` is a template, not a second live management path.
 
-## Demonstration scope
+## Remaining limitations
 
-Use fictional demo records only. The Presentation Guide walks through the supported workflow. Do not advertise this first build as suitable for live school production until remaining security, resource, reporting and offline requirements are completed.
-
-## Verification in this implementation session
-
-- Five backend tests passed: full lesson/assignment/feedback workflow, quiz answer hiding and scoring, role/class/school restrictions, refresh rotation/origin checks, and persisted demonstration requests.
-- Next.js production build passed.
-- Production frontend proxy integration passed for the landing page, API health, cookie login, published lesson list, refresh rotation and logout.
-- `render.yaml` passed validation against Render's published JSON schema. Render CLI validation has not been run.
-- Disconnected browser verification and visual browser QA were not completed: the Chromium download was corrupt in this environment. Offline reading must be verified before presenting it as tested.
-- Deployed on 26 October 2026 to the confirmed Render My Workspace: frontend https://edumate-ghana.onrender.com and backend https://edumate-ghana-api.onrender.com, both verified live. Dedicated Neon project: EduMate Ghana (Frankfurt).
-- Live checks passed against Neon: all four role logins, published lesson visibility and completion, quiz score persistence, assignment submission retry, teacher grading, released feedback, platform learner-record restriction, refresh rotation and logout.
-- Demo data was seeded successfully. Live verification adds one labelled presentation-check lesson and assignment to the fictional school.
-- Deployment environment variables are managed directly on Render. The supplied Blueprint remains a deployment template; do not apply it as a second management path without reconciling existing services.
+- Offline data is plaintext in the browser profile. Use a separate, managed profile per learner. Logout removes the active offline profile marker while retaining unsynchronized data. Encryption/PIN-based offline access is not implemented.
+- Ungraded lesson practice reveals its answers for immediate offline feedback. Formal quiz answers stay on the server. Formal work is scored/recorded only after synchronization; server receipt time determines lateness, and changed permissions or exhausted attempt limits can reject queued work without deleting it locally.
+- An enrollment changes one current class. Historical term enrollment is retained, but report filtering currently uses the learner's current class rather than reconstructing historical class rosters.
+- Uploads check document signatures and office archives but do not include antivirus scanning. Office documents are downloaded for compatible viewers, not rendered inside the app. No storage quota/billing dashboard or retention automation yet.
+- Rich-text/math editing, scheduled assessments, timers, advanced charts, notifications, subscription billing, platform school-admin provisioning and password-reset email remain outside this expansion.
+- Reports use released attempts and equal learner weighting for the class average. Follow-up flags are thresholds, not educational diagnoses.
+- Device activity requires the learner to select their assigned tablet record in Offline learning. Inactive inventory status does not lock, wipe or uninstall software on Android.
+- Content is original demonstration material requiring educator curriculum review before real school use. Some original seed quiz questions repeat.
+- Stronger session-family replay handling, distributed rate limits, privacy/retention policies and real Android device testing remain production preparation work.

@@ -5,11 +5,23 @@ from .models import *
 from sqlalchemy import select
 from argon2 import PasswordHasher
 
+def seed_extensions(db,school,password):
+    parent=db.scalar(select(User).where(User.email=='parent@demo.edumate.test'))
+    if not parent:
+        parent=User(name='Demo Parent',email='parent@demo.edumate.test',role='parent',school_id=school.id,password_hash=PasswordHasher().hash(password));db.add(parent);db.flush()
+    child=db.scalar(select(User).where(User.school_id==school.id,User.email=='student1@demo.edumate.test'))
+    if child:
+        if not db.scalar(select(ParentLink.id).where(ParentLink.parent_id==parent.id,ParentLink.student_id==child.id)):db.add(ParentLink(school_id=school.id,parent_id=parent.id,student_id=child.id))
+        if not db.scalar(select(Device.id).where(Device.school_id==school.id,Device.serial=='EDUMATE-DEMO-001')):db.add(Device(school_id=school.id,label='Demo tablet 01',serial='EDUMATE-DEMO-001',student_id=child.id))
+    db.commit()
+
 def seed():
     password=os.environ['DEMO_PASSWORD']
     if len(password)<12: raise ValueError('Use a demo password of at least 12 characters')
     with Session() as db:
-        if db.scalar(select(School).where(School.name=='EduMate Demonstration Academy')): return
+        existing=db.scalar(select(School).where(School.name=='EduMate Demonstration Academy'))
+        if existing:
+            seed_extensions(db,existing,password);return
         school=School(name='EduMate Demonstration Academy'); db.add(school); db.flush()
         def user(name,email,role,cls=None):
             u=User(name=name,email=email+'@demo.edumate.test',role=role,class_name=cls,school_id=None if role=='platform_admin' else school.id,password_hash=PasswordHasher().hash(password)); db.add(u); db.flush(); return u
@@ -38,4 +50,5 @@ def seed():
             pupil=students[0 if cls=='Primary 5' else 10]
             db.add(Submission(event_id=uid(),assessment_id=a.id,student_id=pupil.id,answers=['Both describe half of one whole.'],score=90,feedback='Good explanation. Add a drawing next time.',released=True))
         db.commit()
+        seed_extensions(db,school,password)
 if __name__=='__main__': seed()

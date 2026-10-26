@@ -15,7 +15,7 @@ SECRET = os.getenv('JWT_SECRET')
 if not SECRET or len(SECRET) < 32: raise RuntimeError('JWT_SECRET must contain at least 32 characters')
 SECURE = os.getenv('COOKIE_SECURE', 'true') == 'true'
 ph = PasswordHasher()
-app = FastAPI(title='EduMate Ghana API', version='0.1.0')
+app = FastAPI(title='EduMate Ghana API', version='0.2.0')
 rate = defaultdict(deque)
 def limit(key, count=15):
     q = rate[key]; t = time.time()
@@ -47,6 +47,7 @@ def current(request: Request, db=Depends(db_session)):
 def role(u, *roles):
     if u.role not in roles: fail()
 def assigned(db, u, class_name, subject):
+    validate_scope(db,u,class_name,subject)
     if u.role == 'school_admin': return
     role(u, 'teacher')
     if not db.scalar(select(Teaching).where(Teaching.teacher_id == u.id, Teaching.class_name == class_name, Teaching.subject == subject)): fail('Class or subject not assigned')
@@ -78,7 +79,8 @@ def health(db=Depends(db_session)):
     db.execute(select(1)); return {'status':'ok'}
 @app.post('/auth/login')
 def login(body: Login, request: Request, response: Response, db=Depends(db_session)):
-    limit(('login', request.client.host))
+    limit(('login-account',body.email.lower()))
+    limit(('login-ip',request.client.host),120)
     u = db.scalar(select(User).where(User.email == body.email.lower()))
     try: valid = ph.verify(u.password_hash if u else ph.hash('dummy-invalid-password'), body.password)
     except VerificationError: valid = False
@@ -102,8 +104,8 @@ def logout(request: Request, response: Response, db=Depends(db_session)):
 def me(u=Depends(current)): return public_user(u)
 
 class LessonIn(BaseModel):
-    class_name: Literal['Primary 4','Primary 5']
-    subject: Literal['Mathematics','English Language','Science']
+    class_name: str = Field(min_length=2,max_length=100)
+    subject: str = Field(min_length=2,max_length=100)
     title: str = Field(min_length=3,max_length=200)
     topic: str = Field(max_length=200)
     objectives: str = Field(max_length=4000)
@@ -144,8 +146,8 @@ class Question(BaseModel):
     correct: str | None = Field(default=None,max_length=2000)
     explanation: str = Field(default='',max_length=2000)
 class AssessmentIn(BaseModel):
-    class_name: Literal['Primary 4','Primary 5']
-    subject: Literal['Mathematics','English Language','Science']
+    class_name: str = Field(min_length=2,max_length=100)
+    subject: str = Field(min_length=2,max_length=100)
     title: str = Field(min_length=3,max_length=200)
     kind: Literal['quiz','assignment']
     instructions: str = Field(max_length=5000)
@@ -177,6 +179,7 @@ def create_assessment(b:AssessmentIn,u=Depends(current),db=Depends(db_session)):
 class Answers(BaseModel):
     event_id: str = Field(min_length=16,max_length=100)
     answers: list[str] = Field(max_length=50)
+    file_ids: list[str] = Field(default_factory=list,max_length=10)
 @app.post('/assessments/{id}/submit')
 def submit(id:str,b:Answers,u=Depends(current),db=Depends(db_session)):
     role(u,'student'); a=db.get(Assessment,id); content_access(db,u,a)
@@ -188,11 +191,14 @@ def submit(id:str,b:Answers,u=Depends(current),db=Depends(db_session)):
         return submission_view(existing)
     count=db.scalar(select(func.count()).select_from(Submission).where(Submission.assessment_id==id,Submission.student_id==u.id))
     if count>=a.attempts_allowed: fail('Attempt limit reached',409)
+    validate_attachments(db,u,id,b.file_ids)
     if len(b.answers)!=len(a.questions) or any(len(v)>20000 for v in b.answers): fail('Answer every question',422)
     objective=all(q['type'] in ('mcq','true_false') for q in a.questions)
     score=sum(ans==q['correct'] for ans,q in zip(b.answers,a.questions))/len(a.questions)*a.max_score if objective else None
     s=Submission(event_id=b.event_id,assessment_id=id,student_id=u.id,answers=b.answers,score=score,released=objective)
-    db.add(s); audit(db,u,'submit assessment'); db.commit(); return submission_view(s)
+    db.add(s); db.flush()
+    for file_id in b.file_ids: db.add(SubmissionFile(submission_id=s.id,file_id=file_id))
+    audit(db,u,'submit assessment'); db.commit(); return submission_view(s)
 def submission_view(s):
     d=serialize(s)
     if not s.released: d['score']=None; d['feedback']=''
@@ -207,7 +213,7 @@ def submissions(u=Depends(current),db=Depends(db_session)):
             except HTTPException: continue
         d=submission_view(s) if u.role=='student' else serialize(s)
         d['title']=a.title; d['max_score']=a.max_score; d['student_name']=db.get(User,s.student_id).name
-        d['late']=bool(a.due_at and s.submitted_at>a.due_at)
+        d['late']=bool(a.due_at and datetime.fromisoformat(s.submitted_at)>datetime.fromisoformat(a.due_at))
         if u.role=='student' and s.released: d['review']=a.questions
         result.append(d)
     return result
@@ -235,24 +241,25 @@ class UserIn(BaseModel):
     name: str = Field(min_length=2,max_length=100)
     email: EmailStr
     password: str = Field(min_length=12,max_length=128)
-    role: Literal['student','teacher']
-    class_name: Literal['Primary 4','Primary 5'] | None = None
+    role: Literal['student','teacher','parent']
+    class_name: str | None = Field(default=None,min_length=2,max_length=100)
 @app.post('/users')
 def add_user(b:UserIn,u=Depends(current),db=Depends(db_session)):
     role(u,'school_admin')
     if b.role=='student' and not b.class_name: fail('Student class required',422)
+    if b.class_name: validate_scope(db,u,b.class_name)
     if db.scalar(select(User).where(User.email==b.email.lower())): fail('Email already registered',409)
     d=b.model_dump(exclude={'password'}); d['email']=d['email'].lower()
     x=User(**d,school_id=u.school_id,password_hash=ph.hash(b.password)); db.add(x); audit(db,u,'register user'); db.commit(); return public_user(x)
 @app.patch('/users/{id}/active')
 def toggle_user(id:str,u=Depends(current),db=Depends(db_session)):
     role(u,'school_admin'); x=db.get(User,id)
-    if not x or x.school_id!=u.school_id or x.role not in ('student','teacher'): fail()
+    if not x or x.school_id!=u.school_id or x.role not in ('student','teacher','parent'): fail()
     x.active=not x.active; audit(db,u,'toggle user active'); db.commit(); return public_user(x)|{'active':x.active}
 class TeachingIn(BaseModel):
     teacher_id: str
-    class_name: Literal['Primary 4','Primary 5']
-    subject: Literal['Mathematics','English Language','Science']
+    class_name: str = Field(min_length=2,max_length=100)
+    subject: str = Field(min_length=2,max_length=100)
 @app.post('/teaching')
 def assign(b:TeachingIn,u=Depends(current),db=Depends(db_session)):
     role(u,'school_admin'); t=db.get(User,b.teacher_id)
@@ -289,3 +296,6 @@ def request_demo(b:DemoIn,request:Request,db=Depends(db_session)):
 @app.get('/demo-requests')
 def requests(u=Depends(current),db=Depends(db_session)):
     role(u,'platform_admin'); return [serialize(x) for x in db.scalars(select(DemoRequest))]
+
+from .expansion import router as expansion_router, validate_scope, validate_attachments
+app.include_router(expansion_router)

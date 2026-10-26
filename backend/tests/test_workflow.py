@@ -1,5 +1,7 @@
-import os
-os.environ['DATABASE_URL']='sqlite:///./test.db'
+import os,tempfile
+from pathlib import Path
+TEST_DATABASE=Path(tempfile.gettempdir())/('edumate-test-'+str(os.getpid())+'.db')
+os.environ['DATABASE_URL']='sqlite:///'+str(TEST_DATABASE)
 os.environ['JWT_SECRET']='test-only-secret-at-least-32-characters-long'
 os.environ['COOKIE_SECURE']='false'
 os.environ['DEMO_PASSWORD']='temporary-test-password'

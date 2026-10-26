@@ -8,6 +8,8 @@
 - Student payloads exclude answer keys; unreleased grades and feedback are hidden. Duplicate event IDs return the original submission, with ownership verification.
 - Objective quizzes are graded on the server. Submission transactions lock the student row on PostgreSQL to serialize attempt limits.
 - Login and demo-form rate limits are per process. Multi-instance deployments need shared limits and trusted proxy configuration.
-- Offline lesson downloads persist in plaintext IndexedDB. Only fictional content should be used in this build. Clear site data before transferring a device to another user; stronger offline user verification is required for production.
+- Offline lessons, drafts and attachments persist in plaintext IndexedDB. Use separate managed profiles. Do not clear site data until pending work has synchronized; stronger offline user verification/encryption is required before shared-device production use.
 - The initial migration imports model metadata. Freeze explicit migration operations before evolving the production schema.
 - Backups, retention policies, guardian consent, incident response and Ghana data-protection review must be resolved before using real learner data.
+
+Uploads use a private bucket and school-scoped object keys. Download handlers recheck authorization; parent accounts cannot access resource or student-management APIs. Student-work file IDs are validated against the authenticated student and assessment before being attached. Office archive inspection and signatures are not antivirus scanning. CSV exports neutralize formula prefixes. School reports do not expose unreleased grades.
