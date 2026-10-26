@@ -1,0 +1,38 @@
+/** Replace this adapter with a call to your authenticated backend when GPT is connected.
+ * No model SDK, API key or external AI request is used by this demo.
+ */
+export type TutorLesson={id:string;title:string;subject:string;class_name:string;topic:string;objectives:string;content:string;status:string};
+export type TutorMode='explain'|'hint'|'practice'|'revise';
+export type Practice={prompt:string;options:string[];correct:string;explanation:string};
+export type TutorReply={text:string;practice?:Practice};
+export const TUTOR_MODE='demo' as const;
+const examples:Record<string,{explain:string;hint:string;practice:Practice}>={
+ 'Equivalent fractions':{explain:'Imagine sharing one orange equally between two friends. Each gets one half. Now cut each half into two smaller pieces. Each friend has two of the four pieces, so 1/2 and 2/4 describe the same share.\n\nTo make an equivalent fraction, multiply the top and bottom by the same non-zero number. Try 1/3 × 2/2. What do you notice?',hint:'Draw two rectangles of the same size. Split the first into two equal parts and shade one. Split the second into four equal parts. How many parts would you shade to cover the same area?',practice:{prompt:'Which fraction is equivalent to 1/3?',options:['2/6','1/6','3/4'],correct:'2/6',explanation:'Multiplying both the numerator and denominator of 1/3 by 2 gives 2/6.'}},
+ 'Place value':{explain:'Each place gives a digit its value. In 4,352: 4 means 4,000; 3 means 300; 5 means 50; and 2 means 2.\n\nThink of bundles: thousands, hundreds, tens, ones. We can write 4,352 as 4,000 + 300 + 50 + 2. What is the value of 6 in 6,281?',hint:'Start at the right-hand digit. Name the places: ones, tens, hundreds, thousands. Which place holds the digit you are looking at?',practice:{prompt:'What is the value of 8 in 6,281?',options:['80','800','8'],correct:'80',explanation:'The 8 is in the tens place, so it represents 8 tens: 80.'}},
+ 'Nouns around us':{explain:'A noun names a person, place, animal or thing. “Teacher” names a person. “Accra” names a place. “Goat” names an animal. “Book” names a thing.\n\nRead: “The pupil opens a book.” Pupil and book are nouns. Can you name three things you can see in your classroom?',hint:'Ask yourself: does the word name someone or something? Try pointing to an object in the classroom and naming it.',practice:{prompt:'Which word is a noun?',options:['Garden','Quickly','Runs'],correct:'Garden',explanation:'Garden names a place. Quickly tells how an action happens, and runs is an action word.'}},
+ 'Reading for meaning':{explain:'The main idea is what a passage is mostly about. Details help explain that idea.\n\nIn the lesson, Ama waters the garden, removes weeds and checks the plants. Those details support the main idea: Ama cares for the garden.\n\nTry saying the whole passage in one short sentence.',hint:'Look for what the sentences have in common. If you removed one small detail, what would the passage still mainly be about?',practice:{prompt:'Ama waters the garden and removes weeds. What is the main idea?',options:['Ama cares for a garden','Ama buys a bicycle','Ama plays football'],correct:'Ama cares for a garden',explanation:'Both details describe caring for plants in a garden.'}},
+ 'States of matter':{explain:'A solid usually keeps its own shape. A liquid flows and takes the shape of its container. A gas spreads through the available space.\n\nThink of ice, drinking water and water vapour. These are forms of the same substance. Can you find a safe example of a solid and a liquid nearby?',hint:'Think about shape. Does the material keep its own shape, flow into a container, or spread through the available space? Do not touch or heat unfamiliar materials.',practice:{prompt:'Water is poured from a cup into a bowl. What does it do?',options:['Takes the shape of the bowl','Keeps the shape of the cup','Becomes a solid'],correct:'Takes the shape of the bowl',explanation:'Liquid water flows and takes the shape of its container.'}},
+ 'Healthy plants':{explain:'Most green plants need light, water, air and suitable nutrients. Their parts work together: roots absorb water and minerals, the stem supports the plant, and leaves use light to help make food.\n\nImagine a young plant getting too little water. What changes might you observe?',hint:'Think about where the plant touches the soil. Which part reaches into the soil to collect water and minerals?',practice:{prompt:'Which part of a plant absorbs water from the soil?',options:['Roots','Flowers','Fruit'],correct:'Roots',explanation:'Roots absorb water and minerals from the soil.'}}
+};
+export function demoReply(lesson:TutorLesson,mode:TutorMode,message='',teacherPractice?:Practice|null):TutorReply{
+ if(/\b(password|phone number|home address|contact details)\b/i.test(message))return {text:'Please keep passwords and personal contact information out of the chat. Ask your teacher for help with account or personal matters.'};
+ if(/\b(do my|complete my|answer my|give me (the|all) answers|graded assignment|exam answers)\b/i.test(message))return {text:'I can help you understand the lesson and practise a similar question. Your graded work should show your own thinking. Choose “Give me a hint” to get started.'};
+ if(/\bhint\b/i.test(message))mode='hint';else if(/\b(practi[sc]e|quiz)\b/i.test(message))mode='practice';else if(/\b(revise|revision)\b/i.test(message))mode='revise';
+ const entry=examples[lesson.title];
+ const excerpt=lesson.content.trim().slice(0,900);
+ if(mode==='practice'){
+  const practice=teacherPractice||entry?.practice;
+  return practice?{text:'Let’s try one ungraded practice question. Pick an answer, then read the explanation. This does not change your school results.',practice}:{text:'Try this reflection in your own words:\n\n'+lesson.objectives+'\n\nUse an example from your lesson, then compare your explanation with the notes. This demo cannot mark written answers; ask your teacher for feedback.'};
+ }
+ if(mode==='revise')return {text:'Your revision plan for “'+lesson.title+'”:\n\n1. Read the learning objective: '+lesson.objectives+'\n2. Read the worked example in your lesson.\n3. Explain the main idea aloud in your own words.\n4. Try an ungraded practice question.\n5. Ask your teacher about any step that is still unclear.\n\nThis plan is based on the selected lesson. It is not an AI assessment of your performance.'};
+ if(mode==='hint')return {text:entry?.hint||'Start with this learning objective: '+lesson.objectives+'\n\nFind a worked example in your lesson. What is the first step? Try that step yourself before moving on. Ask your teacher if you are unsure.'};
+ const explain=entry?.explain||'Let’s review the notes your teacher provided for “'+lesson.title+'”.\n\n'+excerpt+(lesson.content.length>900?'…':'')+'\n\nWhich word or step would you like to ask your teacher about?';
+ if(message&&!/\b(explain|understand|simple|simpler|lesson|example|help|what|why|how)\b/i.test(message))return {text:'This demo has prepared activities for your selected lesson. Try “Explain this lesson”, “Give me a hint”, “Practise with me” or “Help me revise”. Free-form AI answers will be available after a live service is connected.'};
+ return {text:explain+(message?'\n\nDemo note: this is a prepared lesson explanation, not a live answer generated for your message.':'')};
+}
+
+export async function requestTutorReply(request:{lesson:TutorLesson;mode:TutorMode;message:string;teacherPractice?:Practice|null}):Promise<TutorReply>{
+ // Future integration point: call an authenticated same-origin backend here.
+ // The backend must fetch authorized lesson context and hold the GPT API key.
+ return demoReply(request.lesson,request.mode,request.message,request.teacherPractice);
+}

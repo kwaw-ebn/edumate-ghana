@@ -17,7 +17,7 @@ Tablet-first learning platform for Ghanaian private schools. **School expansion 
 - Private S3-compatible teacher uploads; curriculum terms/weeks/strands and educator review.
 - Flexible classes, subjects and term enrollments; class/subject PDF and CSV performance reports.
 - Restricted parent summaries and tablet assignment/activation/last-sync inventory.
-- Guided presentation checklist; honestly labelled scripted AI tutor preview.
+- Guided presentation checklist; lesson-based tutor frontend with clearly labelled demo chat, hints, ungraded practice, revision and optional browser read-aloud. GPT is not connected.
 
 ## Local setup
 
@@ -98,3 +98,5 @@ python frontend/tests/browser_check.py
 ```
 
 The browser check uses disposable SQLite and a fake object store. It deliberately stops its local frontend during the disconnected stage and restarts it to test recovery. It does not modify the live school.
+
+See [EduMate Tutor](docs/AI_TUTOR.md) for the frontend features, browser checks and future backend integration boundary.

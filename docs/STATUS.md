@@ -43,3 +43,7 @@ Release commit `cacb658143d35585f6c234fb4b76ab3acd8ce7e5` is live on both existi
 Live API checks passed: real private-object upload/download; curriculum review and downloadable practice packages; versioned drafts and conflict rejection; submission attachments and released feedback; synchronization retries without duplicate submissions; device last-sync recording; linked-parent isolation; custom classes/subjects/terms; and school PDF/CSV exports. The checks used fictional records and added one demonstration worksheet lesson and assignment.
 
 The parent demonstration login is `parent@demo.edumate.test`, linked to Ama, using the existing configured demonstration password. See [school tool instructions](SCHOOL_TOOLS.md).
+
+## Tutor frontend expansion
+
+The student tutor interface now supports a published-lesson entry point, subject/lesson context, chat, prepared explanations and hints, teacher-authored or sample ungraded practice with feedback/retry, revision plans, optional browser read-aloud and per-lesson tab history. All screens identify demonstration mode. GPT is not connected and there are no AI requests or paid API dependencies. See [tutor frontend and future integration](AI_TUTOR.md).
