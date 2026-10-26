@@ -24,3 +24,12 @@ Authentication, role authorization, school isolation, assigned class/subject che
 ## Demonstration scope
 
 Use fictional demo records only. The Presentation Guide walks through the supported workflow. Do not advertise this first build as suitable for live school production until remaining security, resource, reporting and offline requirements are completed.
+
+## Verification in this implementation session
+
+- Five backend tests passed: full lesson/assignment/feedback workflow, quiz answer hiding and scoring, role/class/school restrictions, refresh rotation/origin checks, and persisted demonstration requests.
+- Next.js production build passed.
+- Production frontend proxy integration passed for the landing page, API health, cookie login, published lesson list, refresh rotation and logout.
+- `render.yaml` passed validation against Render's published JSON schema. Render CLI validation has not been run.
+- Disconnected browser verification and visual browser QA were not completed: the Chromium download was corrupt in this environment. Offline reading must be verified before presenting it as tested.
+- No live Render services or Neon project have been provisioned in this session.
